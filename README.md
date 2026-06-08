@@ -436,6 +436,24 @@ journalctl -u ping-ui.service -n 100 --no-pager
 apt install python3-socks -y
 ```
 
+## Автотесты
+
+В проект добавлен набор `pytest`-тестов для проверки конфигурации, локализации, Telegram-отправки, SOCKS5-прокси и основных Flask routes.
+
+Локальный запуск:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 -m pytest -q
+```
+
+Автоматический запуск настроен в GitHub Actions: `.github/workflows/tests.yml`.
+
+Workflow запускается при:
+
+- push в ветку `main`;
+- pull request.
+
 ## Удаление старого cron
 
 Ранняя версия проекта запускалась через cron. Актуальная версия работает постоянно через systemd, поэтому cron-запись для старого `ping_check.py` нужно удалить.

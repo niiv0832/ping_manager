@@ -439,6 +439,24 @@ Install SOCKS5 support:
 apt install python3-socks -y
 ```
 
+## Automated Tests
+
+The project includes `pytest` tests for configuration, localization, Telegram sending, SOCKS5 proxy handling, and core Flask routes.
+
+Run locally:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 -m pytest -q
+```
+
+Automatic execution is configured with GitHub Actions: `.github/workflows/tests.yml`.
+
+The workflow runs on:
+
+- pushes to `main`;
+- pull requests.
+
 ## Removing Old Cron
 
 The early project version was started by cron. The current version runs continuously via systemd, so remove the old `ping_check.py` cron entry.

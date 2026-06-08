@@ -197,7 +197,10 @@ def get_translations(settings):
     return TRANSLATIONS[normalize_language(settings.get("language", DEFAULT_LANGUAGE))]
 
 
-def load_env_file(path=ENV_FILE):
+def load_env_file(path=None):
+    if path is None:
+        path = ENV_FILE
+
     variables = {}
 
     if not os.path.exists(path):

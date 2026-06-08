@@ -2,6 +2,8 @@
 
 ## 2026-06-09
 
+- Added `pytest` automated tests and GitHub Actions workflow to run tests on push/PR.
+- Fixed `.env` loading: env file path is now resolved when `load_env_file()` is called instead of being fixed at module import time.
 - Added bilingual WebUI: English / Russian, with English as the default language.
 - Selected UI language is stored in `_settings.language`.
 - Removed personal IP/text values from WebUI placeholders and default config; defaults now use `192.168.0.1`, `Host is available`, `Host access lost`.
