@@ -1,0 +1,14 @@
+[Unit]
+Description=Ping WebUI Manager
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/ping_manager
+EnvironmentFile=-/root/ping_manager/.env
+ExecStart=/usr/bin/python3 /root/ping_manager/app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
