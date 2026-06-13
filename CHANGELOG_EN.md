@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-06-14
+
+- Added reverse webhook device checks: each device gets a personal URL with a secret token.
+- Added `config.json` schema v2 with `ping_hosts`, `webhook_devices`, `_schema_version`, `webhook_base_url`, and `trust_proxy_headers`.
+- Added automatic migration from the old flat `config.json` format to schema v2 on first startup.
+- Switched config writes to atomic `os.replace()` guarded by a shared `threading.RLock`.
+- Added `GET|POST /webhook/<token>` heartbeat endpoint.
+- Added a webhook worker that marks devices `offline` when heartbeat is missing longer than `interval_seconds * missed_heartbeats`.
+- Added WebUI forms and table for webhook devices: name, location, type, interval, missed heartbeats, status, last heartbeat, and last IP.
+- Added `Webhook base URL` to WebUI settings.
+- Added generated setup instructions and ready-to-copy commands for Linux, macOS, Windows, and RouterOS.
+- Added experimental instructions for Keenetic and UniFi.
+- Added webhook token rotation with device reset to `pending`.
+- Expanded automated tests for config migration, webhook routes, online/offline transitions, instructions, Windows validation, and ping-check regression.
+- Updated Russian and English documentation.
+
 ## 2026-06-09
 
 - Added `pytest` automated tests and GitHub Actions workflow to run tests on push/PR.

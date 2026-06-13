@@ -7,9 +7,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
-    <div class="max-w-4xl mx-auto p-4 sm:p-6">
-        <header class="mb-8 flex justify-between items-center">
-            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">📡 {{ t.header_title }}</h1>
+    <div class="max-w-7xl mx-auto p-4 sm:p-6">
+        <header class="mb-8 flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">{{ t.header_title }}</h1>
             <div class="flex flex-col sm:flex-row gap-3 sm:items-center">
                 <form action="/set_language" method="POST" class="flex items-center gap-2">
                     <label for="language" class="text-sm font-medium text-gray-600">{{ t.language }}</label>
@@ -36,8 +36,8 @@
         {% endif %}
 
         <div class="bg-white p-6 rounded-xl shadow-sm mb-8 border-l-4 border-indigo-500">
-            <h2 class="text-xl font-bold mb-4 text-gray-700">{{ t.proxy_settings }}</h2>
-            <form action="/save_proxy" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <h2 class="text-xl font-bold mb-4 text-gray-700">{{ t.service_settings }}</h2>
+            <form action="/save_proxy" method="POST" class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
                 <div>
                     <label class="block text-sm font-medium mb-1 text-gray-600">{{ t.proxy_ip }}</label>
                     <input type="text" name="proxy_ip" value="{{ settings.proxy_ip }}" placeholder="127.0.0.1" class="w-full border p-2 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
@@ -46,9 +46,19 @@
                     <label class="block text-sm font-medium mb-1 text-gray-600">{{ t.proxy_port }}</label>
                     <input type="number" name="proxy_port" value="{{ settings.proxy_port }}" placeholder="1080" class="w-full border p-2 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
-                <div class="flex items-center h-11">
-                    <input type="checkbox" name="proxy_enabled" id="proxy_enabled" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" {% if settings.proxy_enabled %}checked{% endif %}>
-                    <label for="proxy_enabled" class="ml-2 block text-sm font-medium text-gray-700">{{ t.proxy_enabled }}</label>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium mb-1 text-gray-600">{{ t.webhook_base_url }}</label>
+                    <input type="url" name="webhook_base_url" value="{{ settings.webhook_base_url }}" placeholder="{{ t.webhook_base_url_hint }}" class="w-full border p-2 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div class="space-y-2">
+                    <label class="flex items-center text-sm font-medium text-gray-700">
+                        <input type="checkbox" name="proxy_enabled" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" {% if settings.proxy_enabled %}checked{% endif %}>
+                        <span class="ml-2">{{ t.proxy_enabled }}</span>
+                    </label>
+                    <label class="flex items-center text-sm font-medium text-gray-700">
+                        <input type="checkbox" name="trust_proxy_headers" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" {% if settings.trust_proxy_headers %}checked{% endif %}>
+                        <span class="ml-2">{{ t.trust_proxy_headers }}</span>
+                    </label>
                 </div>
                 <div class="text-right">
                     <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors cursor-pointer w-full">{{ t.save }}</button>
@@ -61,7 +71,36 @@
             </form>
         </div>
 
-        <div class="bg-white p-6 rounded-xl shadow-sm mb-8">
+        {% if instruction %}
+        <div class="bg-white rounded-xl shadow-sm mb-8 overflow-hidden border-l-4 border-emerald-500">
+            <div class="p-6 border-b">
+                <h2 class="text-xl font-bold text-gray-800">{{ t.instructions_for.format(name=instruction.device.name) }}</h2>
+                <div class="mt-3">
+                    <label class="block text-sm font-medium mb-1 text-gray-600">{{ t.webhook_url }}</label>
+                    <pre class="bg-gray-900 text-gray-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all">{{ instruction.webhook_url }}</pre>
+                </div>
+                {% if instruction.warning %}
+                <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                    <span class="font-semibold">{{ t.instruction_warning }}:</span> {{ instruction.warning }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="p-6 space-y-5">
+                <h3 class="text-lg font-semibold text-gray-700">{{ instruction.title }}</h3>
+                {% for step in instruction.steps %}
+                <div>
+                    <div class="mb-2 text-sm font-semibold text-gray-700">{{ step.title }}</div>
+                    {% if step.description %}
+                    <div class="mb-2 text-sm text-gray-600">{{ step.description }}</div>
+                    {% endif %}
+                    <pre class="bg-gray-900 text-gray-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap break-words">{{ step.command }}</pre>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <section class="bg-white p-6 rounded-xl shadow-sm mb-8">
             {% if edit_host %}
             <h2 class="text-xl font-bold mb-4 text-gray-700">{{ t.edit_device }}</h2>
             <form action="/update_host" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -111,9 +150,9 @@
                 </div>
             </form>
             {% endif %}
-        </div>
+        </section>
 
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <section class="bg-white rounded-xl shadow-sm overflow-hidden mb-8">
             <h2 class="text-xl font-bold p-6 border-b text-gray-700">{{ t.current_tasks }}</h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
@@ -132,9 +171,9 @@
                             <td class="p-4">
                                 <div class="mb-1">
                                     {% if data.last_state == 'up' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">● OK</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">OK</span>
                                     {% elif data.last_state == 'down' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">● DOWN</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">DOWN</span>
                                     {% else %}
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{{ t.waiting }}</span>
                                     {% endif %}
@@ -162,11 +201,125 @@
                                 </div>
                             </td>
                         </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="p-6 text-center text-sm text-gray-500">{{ t.no_ping_hosts }}</td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
+
+        <section class="bg-white p-6 rounded-xl shadow-sm mb-8">
+            {% if edit_webhook_device %}
+            <h2 class="text-xl font-bold mb-4 text-gray-700">{{ t.edit_webhook_device }}</h2>
+            <form action="/webhook_devices/{{ edit_webhook_id }}/update" method="POST" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {% else %}
+            <h2 class="text-xl font-bold mb-4 text-gray-700">{{ t.add_webhook_device }}</h2>
+            <form action="/webhook_devices/add" method="POST" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {% endif %}
+                <datalist id="known_locations">
+                    {% for location in locations %}
+                    <option value="{{ location }}"></option>
+                    {% endfor %}
+                </datalist>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium mb-1 text-gray-600">{{ t.device_name }}</label>
+                    <input type="text" name="name" value="{{ edit_webhook_device.name if edit_webhook_device else '' }}" required class="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-gray-600">{{ t.location }}</label>
+                    <input type="text" name="location" list="known_locations" value="{{ edit_webhook_device.location if edit_webhook_device else '' }}" class="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-gray-600">{{ t.device_type }}</label>
+                    <select name="device_type" class="w-full border p-2 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                        {% for value, label in device_types %}
+                        <option value="{{ value }}" {% if edit_webhook_device and edit_webhook_device.device_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-gray-600">{{ t.heartbeat_interval }}</label>
+                    <input type="number" name="interval_seconds" min="5" value="{{ edit_webhook_device.interval_seconds if edit_webhook_device else 60 }}" required class="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-gray-600">{{ t.missed_heartbeats }}</label>
+                    <input type="number" name="missed_heartbeats" min="1" value="{{ edit_webhook_device.missed_heartbeats if edit_webhook_device else 2 }}" required class="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div class="md:col-span-5 flex flex-col md:flex-row gap-3 md:justify-end">
+                    {% if edit_webhook_device %}
+                    <a href="/" class="text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-6 rounded-lg transition-colors">{{ t.cancel }}</a>
+                    <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white font-medium py-2 px-6 rounded-lg transition-colors cursor-pointer">{{ t.save_changes }}</button>
+                    {% else %}
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors cursor-pointer w-full md:w-auto">{{ t.add }}</button>
+                    {% endif %}
+                </div>
+            </form>
+        </section>
+
+        <section class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <h2 class="text-xl font-bold p-6 border-b text-gray-700">{{ t.webhook_devices }}</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-500 text-sm uppercase">
+                            <th class="p-4">{{ t.status_time }}</th>
+                            <th class="p-4">{{ t.device_name }}</th>
+                            <th class="p-4">{{ t.location }}</th>
+                            <th class="p-4">{{ t.device_type }}</th>
+                            <th class="p-4">{{ t.last_seen }}</th>
+                            <th class="p-4">{{ t.effective_timeout }}</th>
+                            <th class="p-4">{{ t.last_ip }}</th>
+                            <th class="p-4 text-center">{{ t.action }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for device_id, device in webhook_devices.items() %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-4">
+                                <div class="mb-1">
+                                    {% if device.last_state == 'online' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{{ t.online }}</span>
+                                    {% elif device.last_state == 'offline' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{{ t.offline }}</span>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{{ t.pending }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-xs text-gray-500 font-mono">
+                                    {{ device.status_time if device.status_time else '--:--:-- --.--.----' }}
+                                </div>
+                            </td>
+                            <td class="p-4 font-semibold text-gray-900">{{ device.name }}</td>
+                            <td class="p-4 text-sm text-gray-600">{{ device.location if device.location else t.unknown }}</td>
+                            <td class="p-4 text-sm text-gray-600">{{ device.device_type_label }}</td>
+                            <td class="p-4 text-xs text-gray-600 font-mono">{{ device.last_seen_label if device.last_seen_label else t.never }}</td>
+                            <td class="p-4 text-sm text-gray-600">{{ t.timeout_seconds.format(seconds=device.effective_timeout) }}</td>
+                            <td class="p-4 text-sm font-mono text-gray-700">{{ device.last_ip if device.last_ip else t.unknown }}</td>
+                            <td class="p-4">
+                                <div class="flex flex-col gap-2 items-stretch">
+                                    <a href="/instructions/{{ device_id }}" class="w-full text-center bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 font-medium text-sm py-2 px-3 rounded-lg transition-colors">{{ t.show_instruction }}</a>
+                                    <a href="/?edit_webhook_id={{ device_id }}" class="w-full text-center bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 font-medium text-sm py-2 px-3 rounded-lg transition-colors">{{ t.edit }}</a>
+                                    <form action="/webhook_devices/{{ device_id }}/rotate_token" method="POST">
+                                        <button type="submit" class="w-full bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium text-sm py-2 px-3 rounded-lg transition-colors cursor-pointer">{{ t.rotate_token }}</button>
+                                    </form>
+                                    <form action="/webhook_devices/{{ device_id }}/delete" method="POST">
+                                        <button type="submit" class="w-full bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 font-medium text-sm py-2 px-3 rounded-lg transition-colors cursor-pointer">{{ t.delete }}</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="p-6 text-center text-sm text-gray-500">{{ t.no_webhook_devices }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
 </body>
 </html>

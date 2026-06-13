@@ -1,14 +1,18 @@
 # Ping Manager
 
-Ping Manager is a lightweight web service for Raspberry Pi or any other Linux host. It checks IP address availability with `ping` and sends Telegram notifications when a host state is detected or changes.
+Ping Manager is a lightweight web service for Raspberry Pi or any other Linux host. It checks IP address availability with `ping`, accepts reverse webhook heartbeats from devices, and sends Telegram notifications only when state changes.
 
 The project evolved from a simple cron script into a persistent Flask service with a WebUI, JSON configuration, systemd autostart, bilingual interface, and SOCKS5 proxy support for Telegram.
 
 ## Features
 
 - WebUI for adding, editing, and deleting IP addresses.
+- WebUI for adding devices monitored by reverse webhook heartbeat.
 - Bilingual WebUI: English / Russian, English is the default language.
 - Per-host check interval.
+- Per-device webhook URL and secret token.
+- Generated heartbeat setup commands for Linux, macOS, Windows, and RouterOS.
+- Experimental instructions for Keenetic through Entware/cron and UniFi through SSH/cron.
 - Manual check button for every host.
 - Custom Telegram messages for available and unavailable states.
 - Automatic notifications on first check and on state changes.
@@ -40,30 +44,56 @@ README_EN.md               # English documentation
 
 ## Architecture
 
-The application has three main parts:
+The application has four main parts:
 
-1. `Flask WebUI` - handles user actions: open the panel, switch language, add IP, edit IP, delete IP, manually check IP, save proxy settings, and check proxy.
-2. `JSON config` - stores hosts, intervals, notification texts, last states, proxy settings, and selected UI language.
-3. `Background ping worker` - runs continuously in a separate thread, checks hosts according to their intervals, and calls Telegram API when a notification is required.
+1. `Flask WebUI` - handles user actions: open the panel, switch language, add IP checks, manage webhook devices, save proxy settings, and configure the webhook base URL.
+2. `Webhook endpoint` - accepts `GET` or `POST` requests on personal URLs such as `/webhook/<token>` and updates device state.
+3. `JSON config v2` - stores ping hosts, webhook devices, intervals, tokens, last states, proxy settings, webhook base URL, and selected UI language.
+4. `Background workers` - the ping worker checks IP addresses by interval, and the webhook worker marks devices offline after missed heartbeats.
 
 ```mermaid
 flowchart LR
     U["User"] --> W["Flask WebUI :5001"]
     W --> C["/root/ping_manager/config.json"]
     P["Background ping worker"] --> C
+    R["Webhook worker"] --> C
     P --> H["Ping IP addresses"]
+    D["Devices"] --> E["/webhook/<token>"]
+    E --> C
     P --> T["Telegram Bot API"]
+    R --> T
     C --> P
+    C --> R
     W --> B["Browser in local network"]
     S["systemd ping-ui.service"] --> W
     S --> P
 ```
 
-Key principle: the service runs continuously, so cron is no longer required. Check intervals are handled inside the background worker using the `last_check` field for each host.
+Key principle: the service runs continuously. Ping checks no longer need cron because intervals are handled through `last_check`. Webhook checks are scheduled on the devices themselves through cron/systemd/launchd/Task Scheduler and call a personal URL.
 
 ## State Model
 
-Each IP in `config.json` stores:
+Starting with v2, `config.json` uses a versioned schema:
+
+```json
+{
+    "_schema_version": 2,
+    "_settings": {
+        "proxy_enabled": false,
+        "proxy_ip": "",
+        "proxy_port": "1080",
+        "language": "en",
+        "webhook_base_url": "",
+        "trust_proxy_headers": false
+    },
+    "ping_hosts": {},
+    "webhook_devices": {}
+}
+```
+
+On first v2 startup, the old flat config is migrated automatically: old IP keys move into `ping_hosts`, and `_settings` is preserved.
+
+Each IP in `ping_hosts` stores:
 
 ```json
 {
@@ -76,16 +106,22 @@ Each IP in `config.json` stores:
 }
 ```
 
-Service settings are stored under `_settings`, including the WebUI language:
+Each device in `webhook_devices` stores:
 
 ```json
 {
-    "_settings": {
-        "proxy_enabled": false,
-        "proxy_ip": "",
-        "proxy_port": "1080",
-        "language": "en"
-    }
+    "device_id": "generated-id",
+    "name": "NAS",
+    "location": "Rack",
+    "device_type": "linux",
+    "interval_seconds": 60,
+    "missed_heartbeats": 2,
+    "token": "secret-token",
+    "last_state": "pending",
+    "last_seen": 0,
+    "status_time": "",
+    "last_ip": "",
+    "last_user_agent": ""
 }
 ```
 
@@ -104,6 +140,14 @@ Notification logic:
 This avoids repeated Telegram spam during normal automatic checks.
 
 Manual IP checks always send a Telegram message with the current state, even when the state did not change. The standard message is prefixed with `Manual check: ` in English UI mode or `Ручная проверка: ` in Russian UI mode.
+
+Webhook device notification logic:
+
+- a new device starts as `pending`, and offline notifications are not sent before the first heartbeat;
+- the first heartbeat changes the device to `online` and sends a Telegram message;
+- repeated heartbeats while `online` update `last_seen`, `last_ip`, and `last_user_agent` only;
+- if heartbeat is missing longer than `interval_seconds * missed_heartbeats`, the webhook worker changes the device to `offline` and sends a Telegram message;
+- recovery from `offline -> online` sends another Telegram message.
 
 ## Requirements
 
@@ -269,6 +313,40 @@ The `Check` button runs ping immediately, updates `last_check`, records the curr
 
 The `Edit` button opens a form with the current host values. You can change IP, interval, and notification texts. Current state, last state-change time, and last check time are preserved. If IP is changed, the record is moved to the new address.
 
+## Reverse Webhook Device Checks
+
+Webhook checks are for devices that should confirm their own availability. Add a device in the `Webhook devices` WebUI block:
+
+- `Device name` - a readable name such as `NAS`, `Router`, or `Core Switch`.
+- `Location` - free text; previously used locations are offered as suggestions.
+- `Type` - `linux`, `macos`, `windows`, `routeros`, `keenetic`, `unifi_ap`, or `unifi_switch`.
+- `Heartbeat interval` - how often the device should call its URL.
+- `Missed heartbeats before offline` - how many intervals can be missed before the device becomes `offline`.
+
+Before adding devices, set `Webhook base URL` in the top settings block. This must be the Ping Manager address reachable from the devices, for example:
+
+```text
+http://192.168.1.10:5001
+http://raspberrypi.local:5001
+https://monitor.example.com
+```
+
+After adding a device, WebUI immediately shows its personal `Webhook URL` and ready-to-copy setup commands. You can reopen the same instructions later with the `Instruction` button in the device table.
+
+Supported profiles:
+
+- `Linux` - systemd `.service` + `.timer`, using `curl -fsS --max-time 10`.
+- `macOS` - LaunchAgent in `~/Library/LaunchAgents` with `StartInterval`.
+- `Windows` - Task Scheduler through `schtasks`; the interval must be at least 60 seconds and a multiple of 60.
+- `RouterOS` - `/tool fetch` through `/system script` and `/system scheduler`.
+
+Experimental profiles:
+
+- `Keenetic` - Entware/OPKG + cron + curl. Works only when Entware is installed and supported by your firmware.
+- `UniFi WiFi/AP` and `UniFi Switch` - SSH/cron profile. Cron persistence depends on the model, firmware, and UniFi updates; if it does not survive updates, use a ping check or an external Linux host as an agent.
+
+The token is embedded in the URL and generated separately for every device. If a token is exposed, press `Rotate token` and apply the new instruction on the device.
+
 ## Language Switching
 
 At the top of the WebUI there is a `Language` selector.
@@ -307,7 +385,13 @@ The proxy check button calls Telegram Bot API `getMe` strictly through the confi
 cp /root/ping_manager/config.json /root/ping_manager/config.json.bak
 ```
 
-`config.json` contains hosts, intervals, states, proxy settings, and selected UI language. Usually it should not be replaced during updates.
+`config.json` contains hosts, webhook devices, intervals, states, proxy settings, and selected UI language. Usually it should not be replaced during updates.
+
+On first v2 startup, the old config format is migrated automatically:
+
+- old IP records become `ping_hosts` entries;
+- `_settings.language`, SOCKS5 proxy settings, and custom notification texts are preserved;
+- new fields `webhook_base_url`, `trust_proxy_headers`, and `webhook_devices` are added automatically.
 
 ### 2. Stop Service
 
@@ -474,6 +558,8 @@ Remove a line like:
 ## Security and Limitations
 
 - WebUI has no authentication. Use it only in a trusted local network or restrict access with a firewall.
+- Webhook URLs contain secret tokens. Do not publish links from setup instructions, and use `Rotate token` if a URL may have been exposed.
+- If Ping Manager is behind a reverse proxy, enable `Trust X-Forwarded-For` only for a trusted proxy. Otherwise, device IP is taken from the direct connection.
 - Telegram token is stored in `/root/ping_manager/.env`. Do not publish this file with a real token.
 - `config.json` is created automatically at `/root/ping_manager/config.json`.
 - Tailwind CSS is loaded from CDN in the HTML template, so the browser needs internet access for the styled UI. The basic HTML page remains available without it.
